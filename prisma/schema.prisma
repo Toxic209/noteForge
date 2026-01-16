@@ -13,7 +13,3 @@ datasource db {
   provider = "postgresql"
 }
 
-
-model test {
-  name Int @unique
-}
