@@ -59,7 +59,7 @@ const loginUserService = async (identifier: string, password: string) => {
             errorCode: "UNAUTHORIZED"
         })
     }
-} 
+}
 
 
 const selectUserService = async (id: string) => {
@@ -94,4 +94,63 @@ const deleteUserService = async (requesterId: string, targetId: string) => {
     await prisma.user.delete({
         where: { id: targetId }
     })
+}
+
+const updateUsernameService = async (id: string, newUsername: string) => {
+
+    const currentUser = await prisma.user.findUnique({ where: { id: id }, select: { username: true } });
+
+    if (!currentUser) {
+        throw new ApiError({ statusCode: 404, errorCode: "NOT_FOUND", message: "User not found" });
+    }
+
+    if (newUsername === currentUser.username) {
+        throw new ApiError({
+            message: "New Username must be different than the Current Username!",
+            statusCode: 400,
+            errorCode: "VALIDATION_ERROR"
+        });
+    }
+
+    const usernameTaken = await prisma.user.findUnique({
+        where: { username: newUsername },
+        select: { id: true }
+    });
+
+    if (usernameTaken) {
+        throw new ApiError({
+            statusCode: 409,
+            errorCode: "CONFLICT",
+            message: "Username already taken"
+        });
+    }
+
+    await prisma.user.update({
+        where: { id },
+        data: { username: newUsername }
+    });
+}
+
+const updateEmailService = async (newEmail: string, id: string, password: string) => {
+    const currentUser = await prisma.user.findUnique({where: {id: id}, select: {email: true, password: true}})
+    if(!currentUser){
+        throw new ApiError({ statusCode: 404, errorCode: "NOT_FOUND", message: "User not found" });
+    }
+
+    const isPasswordCorrect = await bcrypt.compare(password, currentUser.password);
+
+    if(!isPasswordCorrect){
+        throw new ApiError({ statusCode: 401, errorCode: "UNAUTHORIZED", message: "Incorrect Password!" });
+    }
+
+    const emailExists = await prisma.user.findUnique({where: { email: newEmail }, select: { id: true }});
+    if(emailExists) {
+        throw new ApiError({
+            statusCode: 409,
+            errorCode: "CONFLICT",
+            message: "Email already exists."
+        });
+    }
+
+    await prisma.user.update({where: { id }, data: { email: newEmail }});
 }
