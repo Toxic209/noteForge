@@ -154,3 +154,27 @@ const updateEmailService = async (newEmail: string, id: string, password: string
 
     await prisma.user.update({where: { id }, data: { email: newEmail }});
 }
+
+const updatePasswordService = async (newPassword: string, id: string, currentPassword: string) => {
+    const currentUser = await prisma.user.findUnique({where: {id}, select: {password: true}});
+    if(!currentUser){
+        throw new ApiError({ statusCode: 404, errorCode: "NOT_FOUND", message: "User not found" });
+    }
+
+    const isPasswordCorrect = await bcrypt.compare(currentPassword, currentUser.password);
+    if(!isPasswordCorrect){
+        throw new ApiError({ statusCode: 401, errorCode: "UNAUTHORIZED", message: "Incorrect Password!" });
+    }
+
+    if(newPassword === currentPassword){
+        throw new ApiError({
+            message: "New Password must not match the Old Password",
+            statusCode: 400,
+            errorCode: "VALIDATION_ERROR"
+        });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    await prisma.user.update({where: { id }, data: { password: hashedNewPassword }});
+}
